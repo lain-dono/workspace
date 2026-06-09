@@ -1,0 +1,18 @@
+[package]
+name = "upd"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+workspace = { path = "../crates/workspace" }
+dock = { path = "../crates/dock" }
+
+bevy = "0.18"
+bevy_egui = "0.39"
+#bevy_vello = { version = "0.13.1", features = ["text", "default_font"] }
+iu = { path = "../iu" }
+
+egui_extras = { version = "0.33" }
+serde = { version = "1", features = ["derive"], optional = true }
+
+variadics_please = "1.1"
