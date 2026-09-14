@@ -1,0 +1,7 @@
+{
+    "lifer::mechanics::item::ItemName": ("Potion"),
+    "lifer::mechanics::item::consumable::Consumable": (
+        current: 3.0,
+        maximum: 4.0,
+    ),
+}

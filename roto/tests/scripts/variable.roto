@@ -1,0 +1,8 @@
+filtermap main(x: u32) {
+    let a = 5;
+    if a == x {
+        accept
+    } else {
+        reject
+    }
+}

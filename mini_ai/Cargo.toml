@@ -1,0 +1,26 @@
+[package]
+name = "mini_ai"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ai = { path = "../crates/ai" }
+pathfinding = { path = "../crates/pathfinding" }
+
+anyhow = "1.0.98"
+approx = "0.5.1"
+bevy = { version = "0.17.0", features = ["reflect_functions"] }
+bevy_egui = "0.38.0"
+# bevy_landmass = "0.9.0"
+bitflags = "2.9.0"
+bytemuck = { version = "1.22.0", features = ["derive"] }
+egui_plot = "0.34.0"
+indexmap = "2.9.0"
+rand = "0.9.0"
+ron = "0.11.0"
+rustc-hash = "2.1.1"
+serde = "1.0.219"
+smallvec = { version = "1.15.0", features = ["const_generics", "const_new"] }
+thiserror = "2.0.12"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"

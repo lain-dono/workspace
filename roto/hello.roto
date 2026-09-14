@@ -1,0 +1,18 @@
+fn main() {
+    let n = 1.5;
+    let m = f32.floor(n);
+    let world = "world";
+    print(f"Hello, {world}!")
+}
+
+fn lol(alpha: i32) -> i32 {
+    if alpha > 5 {
+        return 7
+    }
+
+    let a = 7;
+
+    a + a + a
+}
+
+

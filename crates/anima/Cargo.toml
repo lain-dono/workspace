@@ -1,0 +1,12 @@
+[package]
+name = "anima"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+reui = { version = "0.3.0", features = ["bevy"] }
+
+bevy = "0.12"
+serde = { version = "1", features = ["derive"] }
+egui = { version = "0.23.0", features = ["bytemuck"] }
+ron = "0.8"

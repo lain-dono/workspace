@@ -1,0 +1,59 @@
+[profile.dev.package."*"]
+opt-level = 3
+strip = "debuginfo"
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+codegen-units = 1
+
+# The profile that 'cargo dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
+[profile.profiling]
+inherits = "release"
+lto = true
+strip = "none"
+debug = "full"
+
+[workspace]
+resolver = "3"
+members = [
+  # "game",
+  #"builder",
+  # "mini_ai",
+
+  # "viewer",
+
+  # "bevy_def",
+
+  "crates/dcel",
+  "crates/ai_q",
+
+  # "crates/ai",
+  # "crates/pathfinding",
+  "crates/bmesh",
+  # "crates/half_edge",
+  "crates/palette_gen",
+
+  # "crates/iyes_progress",
+  # "crates/bevy_asset_loader/bevy_asset_loader",
+  # "crates/bevy_asset_loader/bevy_asset_loader_derive",
+
+  # ###"lifer",
+
+  "crates/terrain",
+
+  # "roto",
+
+  "crates/dock",
+  "crates/workspace",
+  #"iu",
+  #"crates/anima",
+  #"convert",
+  #"crates/editor",
+  "upd",
+]

@@ -1,0 +1,22 @@
+[package]
+name = "mechanics"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+members = [
+    "crates/def",
+    "crates/lang",
+    "crates/vm",
+    "crates/semantic",
+    "crates/brwck",
+]
+
+[dependencies]
+vm = { path = "crates/vm" }
+bevy_def = { path = "crates/def" }
+bevy_lang = { path = "crates/lang" }
+semantic = { path = "crates/semantic" }
+
+bevy = "0.16"
+#thiserror = "2.0.12"

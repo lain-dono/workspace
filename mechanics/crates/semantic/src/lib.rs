@@ -1,0 +1,69 @@
+#![warn(clippy::pedantic, clippy::nursery, clippy::as_conversions)]
+#![allow(
+    clippy::module_name_repetitions,
+    clippy::doc_lazy_continuation,
+    clippy::too_long_first_doc_paragraph
+)]
+//! # Semantic Analyzer
+//! The semantic analyzer consists of the following basic elements:
+//! - AST is an abstract syntax tree that implements a predefined set of
+//!   representations in a programming language. This is the basis for
+//!   semantic analysis.
+//! - Semantic analyzer - AST based semantic analyzes generates a
+//!   Semantic State Stack and semantic representation context for
+//!   logical semantic blocks. Contains all the necessary results of
+//!   semantic analysis, including:
+//!   - constants
+//!   - types
+//!   - functions
+//!
+//! For the body of functions, the analysis of the semantic logic of the
+//! function and the generation of Block State context trees are fully implemented.
+//!
+//! Based on this Semantic context data, additional analysis in the form of linters,
+//! optimizers, and code generation can be implemented.
+
+/// Block state types
+pub mod block_state;
+/// Basic semantic types
+pub mod context;
+/// Error types
+pub mod error;
+/// Expression types
+pub mod expression;
+/// Semantic analyzer and State related functions
+pub mod semantic;
+/// Condition types
+pub mod stmt;
+/// Semantic analyzer common types
+pub mod types;
+
+pub mod constants;
+pub mod function;
+pub mod handle;
+pub mod names;
+
+pub mod flow;
+
+/// Imports with full path of import
+pub type ImportPath = Vec<crate::names::ImportName>;
+
+/// # Main
+/// Stack of `MainStatement` main AST elements. That gather
+/// tries of AST, to represent full sort of source code.
+pub type Main<E> = Vec<MainStatement<E>>;
+
+/// `MainStatement` main AST statement for all elements.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "codec", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "codec", serde(tag = "type", content = "content"))]
+pub enum MainStatement<E> {
+    /// Import declarations
+    Import(ImportPath),
+    /// Constant declarations
+    Constant(crate::constants::Constant),
+    /// Type declaration
+    Types(crate::types::StructTypes),
+    /// Function declaration and function body-statement
+    Function(crate::function::FunctionDecl<E>),
+}

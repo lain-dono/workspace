@@ -1,0 +1,21 @@
+[workspace]
+members = [
+    "crates/dock",
+    "crates/workspace",
+    #"crates/anima",
+    #"convert",
+
+    #"crates/editor",
+    "upd",
+]
+resolver = "3"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package]
+wgpu = { opt-level = 3 }
+naga = { opt-level = 3 }
+winit = { opt-level = 3 }
+egui = { opt-level = 3 }
+bevy = { opt-level = 3 }

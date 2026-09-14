@@ -1,0 +1,7 @@
+{
+    "lifer::mechanics::item::ItemName": ("Raw food"),
+    "lifer::mechanics::item::consumable::Consumable": (
+        current: 0.0,
+        maximum: 40.0,
+    ),
+}

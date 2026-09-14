@@ -1,0 +1,4 @@
+present_mode = "AutoVsync"
+window_mode = "Windowed"
+width = 1920
+height = 1080

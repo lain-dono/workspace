@@ -1,0 +1,128 @@
+html, body {
+    margin: 0;
+    padding: 0;
+}
+
+#main {
+    width: 100vw;
+    height: 100vh;
+    background: #0a0a0f;
+    color: #eee;
+    display: flex;
+}
+#left {
+    width: 400px;
+    display: flex;
+    flex-direction: column;
+
+    flex-grow: 0;
+    flex-shrink: 0;
+}
+#right {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+#log {
+    height: 100%;
+    padding: 1rem 1rem 0rem;
+
+    overflow: auto;
+    scrollbar-color: #aaa transparent;
+    scrollbar-width: thin;
+}
+
+#log p {
+    margin:  1rem 0 0;
+}
+
+#actions{
+    padding: 1rem .5rem;
+}
+
+.action {
+    background: transparent;
+    border: 0;
+    outline: 0;
+    width: 100%;
+    text-align: left;
+    padding: .125rem .25rem;
+}
+
+.action .i { color: #aaa; }
+.action .n { color: #eee; }
+.action:hover .n { text-decoration: underline; }
+.action .t { color: #6AF; }
+
+
+#map {
+    height: 100%;
+}
+
+#stats {
+    height: 600px;
+    display: flex;
+}
+
+.block {
+    padding: 1rem;
+    margin: .25rem;
+    background: #112;
+    border: 1px solid #223;
+    border-radius: 8px;
+}
+
+#status {
+    width: 200px;
+}
+
+#inventory {
+}
+
+#equipment {
+}
+
+.prop {
+    line-height: 1.25rem;
+    padding: .125rem 0 ;
+    display: flex;
+}
+
+.prop .icon {padding-right: .25rem; }
+.prop .name {width: 90px; }
+.prop .dot {
+    color: #556;
+    flex-grow: 1;
+    text-align: center;
+}
+.prop .val {}
+.prop .sep { color: #556; }
+.prop .max { color: #556; }
+
+
+.egrid {
+    display: grid;
+    grid-template-columns: repeat(6, 3rem [col-start]);
+    gap: 0.125rem;
+}
+
+.egrid div {
+    width: 3rem;
+    height: 3rem;
+    box-sizing: border-box;
+
+    border: 1px solid #223;
+
+    font-size: 8px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+
+h1, h2, h3, h4, h5, h6 {
+    margin: 0rem 0 .5rem;
+}

@@ -1,0 +1,3 @@
+record u32 { b: u32 }
+
+fn foo() {}

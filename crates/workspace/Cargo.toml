@@ -1,0 +1,23 @@
+[package]
+name = "workspace"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+naga = { version = "27", features = ["wgsl-out"] }
+wgpu = "27"
+
+egui = "0.33"
+
+sublime_fuzzy = "*"
+ahash = "*"
+downcast-rs = "*"
+
+tracing = "*"
+
+arrayvec = "*"
+slotmap = "*"
+
+log = "*"
+
+thiserror = "2"

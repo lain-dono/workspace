@@ -1,0 +1,4 @@
+export RUST_LOG=main=debug,shaderlab=debug,bevy=debug
+export RUST_BACKTRACE=full
+
+cargo run --release

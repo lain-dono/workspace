@@ -1,0 +1,9 @@
+fn bar(a: u32, b: u32) -> bool {
+	a == b
+}
+
+fn foo() {
+	let a = true;
+	let b = 4;
+	bar(a, b);
+}

@@ -1,0 +1,5 @@
+fn bar() -> bool {
+    return "hello"
+}
+
+fn foo() {}

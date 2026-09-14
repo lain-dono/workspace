@@ -1,0 +1,55 @@
+[package]
+name = "builder"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+#gizmo = { path = "crates/gizmo" }
+bmesh = { path = "../crates/bmesh" }
+
+bevy = "0.19"
+bevy_math = { version = "0.19", features = ["mint"] }
+bevy_egui = "0.40"
+#bevy_mod_outline = "0.9.0"
+#bevy_mod_picking = "0.20.1"
+#bevy_transform_gizmo = "0.12.0"
+egui = { version = "0.34", features = ["mint"] }
+rand = { version = "0.10" }
+
+#emath = { version = "0.32.0", features = ["mint"] }
+#epaint = "0.32.0"
+#ecolor = "0.32.0"
+
+#ahash = "0.8.7"
+enumset = "1.1.13"
+
+#glam = { version = "0.28.0", features = ["mint"] }
+mint = "0.5"
+enum_dispatch = "0.3.12"
+
+bytemuck = "1.25.0"
+uuid = "1.23.3"
+#bevy_mod_rounded_box = "0.10.0"
+slotmap = "1.1.1"
+approx = "0.5.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rkyv = "0.8"
+image = "0.25"
+#earclip = "1.1.0"
+# slotmap = "1.0.7"
+
+#[workspace.dependencies]
+#bevy = "0.16.0"
+#
+#uuid = "1.17"
+#bytemuck = "1.23"
+#
+#emath = "0.32"
+#epaint = "0.32"
+#ecolor = "0.32"
+#ahash = "0.8.7"
+#enumset = "1.1.4"
+#glam = { version = "0.30.2", features = ["mint"] }
+#mint = "0.5"
+#enum_dispatch = "0.3.12"

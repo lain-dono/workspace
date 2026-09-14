@@ -1,0 +1,8 @@
+fn main(x: i32) -> i32 {
+    import foo.bar;
+    bar(bar(x))
+}
+
+fn double(x: i32) -> i32 {
+    2 * x
+}

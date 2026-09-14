@@ -1,0 +1,24 @@
+[package]
+name = "pathfinding"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["debug-avoidance"]
+debug-avoidance = ["dodgy_2d/debug"]
+
+[dependencies]
+bevy = "0.17.2"
+#landmass = "0.8.0"
+
+dodgy_2d = "0.5.5"
+# glam = "0.29.1"
+kdtree = "0.8.0"
+#ord_subset = "3.1.1"
+geo = "0.31.0"
+# disjoint = "0.8.0"
+slotmap = "1.0.7"
+thiserror = "2.0"
+
+[dev-dependencies]
+googletest = "0.13.0"

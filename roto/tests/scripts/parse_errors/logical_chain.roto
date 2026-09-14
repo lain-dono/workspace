@@ -1,0 +1,3 @@
+filter foo() {
+    true && false || true && false;
+}

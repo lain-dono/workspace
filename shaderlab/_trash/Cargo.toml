@@ -1,0 +1,32 @@
+[package]
+name = "wgsl-shaderlab"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+#   [workspace]
+#   members = [
+#       "next"
+#   ]
+
+[dependencies]
+iced_core = { git = "https://github.com/hecrj/iced" }
+iced_winit = { git = "https://github.com/hecrj/iced" }
+iced_native = { git = "https://github.com/hecrj/iced" }
+iced_style = { git = "https://github.com/hecrj/iced" }
+iced_futures = { git = "https://github.com/hecrj/iced", features = ["smol"] }
+iced_wgpu = { git = "https://github.com/hecrj/iced", features = ["canvas"] }
+iced_graphics = { git = "https://github.com/hecrj/iced", features = ["canvas"] }
+env_logger = "0.9"
+slotmap = "1"
+log = "0.4"
+naga = { version = "0.8", features = ["wgsl-in", "wgsl-out"] }
+
+downcast-rs = "1.2"
+ahash = "0.7"
+native-dialog = "0.6.1"
+
+arrayvec = "0.7.2"
+
+num-traits = "0.2.14"

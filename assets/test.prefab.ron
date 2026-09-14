@@ -1,0 +1,19 @@
+[
+  {
+    "#entity": 0,
+    "mechanics::Foo": (
+      a: 5,
+    ),
+  },
+  {
+    "#entity": 1,
+    "mechanics::Foo": (
+      a: 7,
+    ),
+    "mechanics::Bar": (9),
+  },
+  {
+    "#entity": 2,
+    "mechanics::Bar": (11),
+  },
+]

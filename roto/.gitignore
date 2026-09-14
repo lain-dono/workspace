@@ -1,0 +1,13 @@
+.DS_Store
+.vscode
+
+Cargo.lock
+/target
+
+/tarpaulin-report*.html
+
+docs/build
+
+.venv
+.ruff_cache
+__pycache__

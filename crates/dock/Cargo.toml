@@ -1,0 +1,13 @@
+[package]
+name = "dock"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+serde = ["egui/serde"]
+
+[dependencies]
+egui = { version = "0.35", default-features = false }
+
+duplicate = "2.0"
+paste = "1.0"

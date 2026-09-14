@@ -33,6 +33,8 @@ fn setup_camera_system(
         near: 0.1,
         far: 1000.0,
         aspect_ratio: 1.0,
+
+        near_clip_plane: vec4(0.0, 0.0, -1.0, -0.1),
     };
 
     let metering_mask = asset_server.load("basic_metering_mask.png");
@@ -68,7 +70,6 @@ fn setup_camera_system(
             (
                 // pbr::ScreenSpaceAmbientOcclusion::default(),
                 view::ColorGrading::default(),
-                /*
                 bloom::Bloom {
                     // max_mip_dimension: 1024,
                     // scale: Vec2::new(4.0, 4.0),
@@ -79,7 +80,6 @@ fn setup_camera_system(
                     // },
                     ..bloom::Bloom::NATURAL
                 },
-                */
             ),
             (
                 Msaa::Sample4,

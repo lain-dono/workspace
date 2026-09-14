@@ -1,0 +1,20 @@
+[package]
+name = "terrain"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+path = "lib.rs"
+
+[[bin]]
+name = "terrain"
+path = "main.rs"
+
+[features]
+default = ["dev"]
+dev = ["bevy/dev"]
+
+[dependencies]
+bevy = { version = "0.19", features = ["free_camera"] }
+image = "0.25"
+bytemuck = "1.24"

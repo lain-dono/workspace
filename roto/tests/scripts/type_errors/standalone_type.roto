@@ -1,0 +1,4 @@
+filter foo() {
+	let a = String;
+	accept
+}

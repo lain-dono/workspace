@@ -1,0 +1,25 @@
+[package]
+name = "gizmo"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+webgl = []
+
+[dependencies]
+bevy.workspace = true
+
+#bevy_mod_outline.workspace = true
+#bevy_mod_picking.workspace = true
+
+bytemuck.workspace = true
+uuid.workspace = true
+
+emath.workspace = true
+epaint.workspace = true
+ecolor.workspace = true
+glam.workspace = true
+mint.workspace = true
+enum_dispatch.workspace = true
+ahash.workspace = true
+enumset.workspace = true

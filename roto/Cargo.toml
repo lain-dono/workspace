@@ -1,0 +1,54 @@
+[package]
+name = "roto"
+version = "0.9.0"
+edition = "2024"
+authors = ["NLnet Labs <routing-team@nlnetlabs.nl>"]
+license = "BSD-3-Clause"
+rust-version = "1.91"
+description = "strongly-typed, compiled language for Rotonda"
+documentation = "https://docs.rs/roto/"
+repository = "https://github.com/NLnetLabs/roto/"
+homepage = "https://www.nlnetlabs.nl/projects/routing/rotonda/"
+keywords = ["routing", "bgp"]
+categories = ["network-programming"]
+readme = "README.md"
+exclude = ["/.github", "/tests", "/vscode-extension"]
+
+[[bin]]
+name = "roto"
+path = "src/main.rs"
+required-features = ["cli"]
+test = false
+bench = false
+
+[features]
+default = ["cli"]
+cli = ["clap"]
+logger = ["env_logger"]
+disas = ["cranelift-codegen/disas"]
+
+[dependencies]
+ariadne = "0.5.1"
+clap = { version = "4.4.6", features = ["derive"], optional = true }
+env_logger = { version = "0.11", optional = true }
+unicode-ident = "1.0.18"
+log = "0.4"
+symbol_table = { version = "0.5.0", features = ["global"] }
+rustc-literal-escaper = "0.0.4"
+libc = "0.2"
+thiserror = "2"
+bytemuck = { version = "1" }
+variadics_please = "1.1.0"
+
+[dependencies.cranelift]
+version = "0.126.0"
+features = ["frontend", "jit", "module", "native"]
+
+[dependencies.cranelift-codegen]
+version = "0.126.0"
+
+[dev-dependencies]
+bytes = "1"
+insta = { version = "1.43.1", features = ["glob"] }
+routecore = { version = "0.5", features = ["bgp", "bmp", "serde"] }
+tabled = { version = "0.18.0", default-features = false, features = ["std"] }

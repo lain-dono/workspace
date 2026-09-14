@@ -1,0 +1,35 @@
+on:
+  push:
+    branches:
+      - master
+      - develop
+  pull_request:
+
+name: Lints
+jobs:
+  lint:
+    name: Lint
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        rust:
+          - nightly
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy no-default-features
+        run: cargo +nightly clippy --all --all-targets --no-default-features -- -D warnings
+      - name: Clippy
+        run: cargo +nightly clippy --all --all-targets --all-features -- -D warnings

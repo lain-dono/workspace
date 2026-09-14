@@ -1,0 +1,1317 @@
+use crate::agent::{AgentNodeTypeCostOverrides, AgentState, ReachedCondition};
+use crate::character::Character3d;
+use crate::coords::{ThreeD, TwoD};
+use crate::island::{Island2d, Island3d};
+use crate::plugin::{
+    AgentOptions, FromAgentRadius, NavMeshHandle, NavigationMesh, SamplePointError,
+    prelude::{
+        Agent2d, Agent3d, AgentTarget2d, AgentTarget3d, Archipelago2d, Archipelago3d, NavMesh2d,
+        NavMesh3d, NavigationMesh3d,
+    },
+};
+use crate::plugin2d::LandmassPlugin2d;
+use crate::plugin3d::LandmassPlugin3d;
+use bevy::app::App;
+use bevy::asset::{AssetPlugin, Assets};
+use bevy::ecs::entity::Entity;
+use bevy::math::{Quat, Vec2, Vec3};
+use bevy::platform::collections::HashMap;
+use bevy::transform::{TransformPlugin, components::Transform};
+use std::sync::Arc;
+
+fn sorted(mut v: Vec<Entity>) -> Vec<Entity> {
+    v.sort();
+    v
+}
+
+#[test]
+fn computes_path_for_agent_and_updates_desired_velocity() {
+    let mut app = App::new();
+
+    app.add_plugins((
+        bevy::app::TaskPoolPlugin::default(),
+        bevy::time::TimePlugin,
+        bevy::app::ScheduleRunnerPlugin::default(),
+    ))
+    .add_plugins(TransformPlugin)
+    .add_plugins(AssetPlugin::default())
+    .add_plugins(LandmassPlugin3d::default());
+    // Update early to allow the time to not be 0.0.
+    app.update();
+
+    app.world_mut().spawn((
+        Archipelago3d::new(),
+        AgentOptions::<ThreeD>::from_agent_radius(0.5),
+    ));
+
+    let nav_mesh = Arc::new(
+        NavigationMesh3d {
+            vertices: vec![
+                Vec3::new(1.0, 0.0, 1.0),
+                Vec3::new(4.0, 0.0, 1.0),
+                Vec3::new(4.0, 0.0, 4.0),
+                Vec3::new(3.0, 0.0, 4.0),
+                Vec3::new(3.0, 0.0, 2.0),
+                Vec3::new(1.0, 0.0, 2.0),
+            ],
+            polygons: vec![vec![5, 4, 1, 0], vec![4, 3, 2, 1]],
+            polygon_type_indices: vec![0, 0],
+        }
+        .validate()
+        .expect("is valid"),
+    );
+
+    let nav_mesh_handle = app
+        .world()
+        .resource::<Assets<NavMesh3d>>()
+        .get_handle_provider()
+        .reserve_handle()
+        .typed::<NavMesh3d>();
+
+    app.world_mut().spawn((
+        Transform::from_translation(Vec3::new(1.0, 1.0, 1.0)),
+        NavMeshHandle::<ThreeD>(nav_mesh_handle.clone()),
+    ));
+
+    let nav_mesh = NavMesh3d {
+        nav_mesh,
+        type_index_to_node_type: HashMap::default(),
+    };
+    app.world_mut()
+        .resource_mut::<Assets<NavMesh3d>>()
+        .insert(&nav_mesh_handle, nav_mesh);
+
+    let agent_id = app
+        .world_mut()
+        .spawn((
+            Transform::from_translation(Vec3::new(2.5, 1.0, 2.5)),
+            Agent3d::new(
+                Vec3::ZERO,
+                0.5,
+                1.0,
+                2.0,
+                // reached_condition: ReachedCondition::Distance(None),
+            ),
+            AgentTarget3d::Point(Vec3::new(4.5, 1.0, 4.5)),
+        ))
+        .id();
+
+    app.update();
+
+    let agent = app.world().get::<Agent3d>(agent_id).unwrap();
+    assert_eq!(agent.state, AgentState::Moving);
+    assert_eq!(agent.desired_velocity, Vec3::new(1.5, 0.0, 0.5).normalize());
+}
+
+/*
+#[test]
+fn adds_and_removes_agents() {
+    let mut app = App::new();
+
+    app.add_plugins((
+        bevy::app::TaskPoolPlugin::default(),
+        bevy::time::TimePlugin,
+        bevy::app::ScheduleRunnerPlugin::default(),
+    ))
+    .add_plugins(AssetPlugin::default())
+    .add_plugins(LandmassPlugin3d::default());
+
+    // Update early to allow the time to not be 0.0.
+    app.update();
+
+    let archipelago_id = app
+        .world_mut()
+        .spawn((
+            Archipelago3d::new(),
+            AgentOptions::<ThreeD>::from_agent_radius(0.5),
+        ))
+        .id();
+
+    let agent_id_1 = app
+        .world_mut()
+        .spawn((
+            Agent3d::new(archipelago_id),
+            AgentSettings {
+                radius: 0.5,
+                desired_speed: 1.0,
+                max_speed: 2.0,
+            },
+        ))
+        .id();
+
+    let agent_id_2 = app
+        .world_mut()
+        .spawn((
+            Agent3d::new(archipelago_id),
+            AgentSettings {
+                radius: 0.5,
+                desired_speed: 1.0,
+                max_speed: 2.0,
+            },
+        ))
+        .id();
+
+    app.update();
+
+    let mut archipelago = app
+        .world_mut()
+        .get_mut::<Archipelago3d>(archipelago_id)
+        .expect("archipelago exists");
+
+    assert_eq!(
+        sorted(archipelago.entity_agent.keys().copied().collect()),
+        sorted(vec![agent_id_1, agent_id_2]),
+    );
+    assert_eq!(
+        sorted(archipelago.agent_entity.values().copied().collect()),
+        sorted(vec![agent_id_1, agent_id_2]),
+    );
+
+    {
+        let world = &mut archipelago.world;
+        let mut query = world.query_filtered::<Entity, With<Agent<ThreeD>>>();
+        let count = query.iter(world).map(AgentId).count();
+        assert_eq!(count, 2);
+    }
+
+    let agent_id_3 = app
+        .world_mut()
+        .spawn((
+            Agent3d::new(archipelago_id),
+            AgentSettings {
+                radius: 0.5,
+                desired_speed: 1.0,
+                max_speed: 2.0,
+            },
+        ))
+        .id();
+
+    app.update();
+
+    let mut archipelago = app
+        .world_mut()
+        .get_mut::<Archipelago3d>(archipelago_id)
+        .expect("archipelago exists");
+
+    assert_eq!(
+        sorted(archipelago.entity_agent.keys().copied().collect()),
+        sorted(vec![agent_id_1, agent_id_2, agent_id_3]),
+    );
+    assert_eq!(
+        sorted(archipelago.agent_entity.values().copied().collect()),
+        sorted(vec![agent_id_1, agent_id_2, agent_id_3]),
+    );
+    {
+        let world = &mut archipelago.world;
+        let mut query = world.query_filtered::<Entity, With<Agent<ThreeD>>>();
+        let count = query.iter(world).map(AgentId).count();
+        assert_eq!(count, 3);
+    }
+
+    app.world_mut().despawn(agent_id_2);
+
+    app.update();
+
+    let mut archipelago = app
+        .world_mut()
+        .get_mut::<Archipelago3d>(archipelago_id)
+        .expect("archipelago exists");
+
+    assert_eq!(
+        sorted(archipelago.entity_agent.keys().copied().collect()),
+        sorted(vec![agent_id_1, agent_id_3]),
+    );
+    assert_eq!(
+        sorted(archipelago.agent_entity.values().copied().collect()),
+        sorted(vec![agent_id_1, agent_id_3]),
+    );
+
+    {
+        let world = &mut archipelago.world;
+        let mut query = world.query_filtered::<Entity, With<Agent<ThreeD>>>();
+        let count = query.iter(world).map(AgentId).count();
+        assert_eq!(count, 2);
+    }
+
+    app.world_mut().despawn(agent_id_1);
+    app.world_mut().despawn(agent_id_3);
+
+    app.update();
+
+    let mut archipelago = app
+        .world_mut()
+        .get_mut::<Archipelago3d>(archipelago_id)
+        .expect("archipelago exists");
+
+    assert_eq!(
+        archipelago.entity_agent.keys().copied().collect::<Vec<_>>(),
+        []
+    );
+    assert_eq!(
+        archipelago
+            .agent_entity
+            .values()
+            .copied()
+            .collect::<Vec<_>>(),
+        []
+    );
+
+    {
+        let world = &mut archipelago.world;
+        let mut query = world.query_filtered::<Entity, With<Agent<ThreeD>>>();
+        let count = query.iter(world).map(AgentId).count();
+        assert_eq!(count, 0);
+    }
+}
+*/
+
+/*
+#[test]
+fn adds_and_removes_characters() {
+    let mut app = App::new();
+
+    app.add_plugins((
+        bevy::app::TaskPoolPlugin::default(),
+        bevy::time::TimePlugin,
+        bevy::app::ScheduleRunnerPlugin::default(),
+    ))
+    .add_plugins(AssetPlugin::default())
+    .add_plugins(LandmassPlugin3d::default());
+
+    // Update early to allow the time to not be 0.0.
+    app.update();
+
+    let archipelago_id = app
+        .world_mut()
+        .spawn((
+            Archipelago3d::new(),
+            AgentOptions::<ThreeD>::from_agent_radius(0.5),
+        ))
+        .id();
+
+    let character_id_1 = app
+        .world_mut()
+        .spawn(Character3d::new(archipelago_id, 0.5))
+        .id();
+
+    let character_id_2 = app
+        .world_mut()
+        .spawn(Character3d::new(archipelago_id, 0.5))
+        .id();
+
+    app.update();
+
+    let mut archipelago = app
+        .world_mut()
+        .get_mut::<Archipelago3d>(archipelago_id)
+        .expect("archipelago exists");
+
+    assert_eq!(
+        sorted(archipelago.entity_character.keys().copied().collect()),
+        sorted(vec![character_id_1, character_id_2]),
+    );
+    {
+        let world = &mut archipelago.world;
+        let mut query = world.query_filtered::<Entity, With<Character<ThreeD>>>();
+        let count = query.iter(world).count();
+        assert_eq!(count, 2);
+    }
+
+    let character_id_3 = app
+        .world_mut()
+        .spawn(Character3d::new(archipelago_id, 0.5))
+        .id();
+
+    app.update();
+
+    let mut archipelago = app
+        .world_mut()
+        .get_mut::<Archipelago3d>(archipelago_id)
+        .expect("archipelago exists");
+
+    assert_eq!(
+        sorted(archipelago.entity_character.keys().copied().collect()),
+        sorted(vec![character_id_1, character_id_2, character_id_3]),
+    );
+
+    {
+        let world = &mut archipelago.world;
+        let mut query = world.query_filtered::<Entity, With<Character<ThreeD>>>();
+        let count = query.iter(world).count();
+        assert_eq!(count, 3);
+    }
+
+    app.world_mut().despawn(character_id_2);
+
+    app.update();
+
+    let mut archipelago = app
+        .world_mut()
+        .get_mut::<Archipelago3d>(archipelago_id)
+        .expect("archipelago exists");
+
+    assert_eq!(
+        sorted(archipelago.entity_character.keys().copied().collect()),
+        sorted(vec![character_id_1, character_id_3]),
+    );
+
+    {
+        let world = &mut archipelago.world;
+        let mut query = world.query_filtered::<Entity, With<Character<ThreeD>>>();
+        let count = query.iter(world).count();
+        assert_eq!(count, 2);
+    }
+
+    app.world_mut().despawn(character_id_1);
+    app.world_mut().despawn(character_id_3);
+
+    app.update();
+
+    let mut archipelago = app
+        .world_mut()
+        .get_mut::<Archipelago3d>(archipelago_id)
+        .expect("archipelago exists");
+
+    assert_eq!(
+        archipelago
+            .entity_character
+            .keys()
+            .copied()
+            .collect::<Vec<_>>(),
+        []
+    );
+
+    {
+        let world = &mut archipelago.world;
+        let mut query = world.query_filtered::<Entity, With<Character<ThreeD>>>();
+        let count = query.iter(world).count();
+        assert_eq!(count, 0);
+    }
+}
+*/
+
+#[test]
+fn adds_and_removes_islands() {
+    let mut app = App::new();
+
+    app.add_plugins((
+        bevy::app::TaskPoolPlugin::default(),
+        bevy::time::TimePlugin,
+        bevy::app::ScheduleRunnerPlugin::default(),
+    ))
+    .add_plugins(AssetPlugin::default())
+    .add_plugins(LandmassPlugin3d::default());
+
+    // Update early to allow the time to not be 0.0.
+    app.update();
+
+    let archipelago_id = app
+        .world_mut()
+        .spawn((
+            Archipelago3d::new(),
+            AgentOptions::<ThreeD>::from_agent_radius(0.5),
+        ))
+        .id();
+
+    let nav_mesh = app
+        .world_mut()
+        .resource_mut::<Assets<NavMesh3d>>()
+        .add(NavMesh3d {
+            nav_mesh: Arc::new(
+                NavigationMesh {
+                    vertices: vec![],
+                    polygons: vec![],
+                    polygon_type_indices: vec![],
+                }
+                .validate()
+                .unwrap(),
+            ),
+            type_index_to_node_type: HashMap::new(),
+        });
+
+    let island_id_1 = app
+        .world_mut()
+        .spawn((Transform::default(), NavMeshHandle(nav_mesh.clone())))
+        .id();
+    let island_id_2 = app
+        .world_mut()
+        .spawn((Transform::default(), NavMeshHandle(nav_mesh.clone())))
+        .id();
+
+    app.update();
+
+    let mut archipelago = app
+        .world_mut()
+        .get_mut::<Archipelago3d>(archipelago_id)
+        .expect("archipelago exists");
+
+    assert_eq!(
+        sorted(archipelago.entity_island.keys().copied().collect()),
+        sorted(vec![island_id_1, island_id_2]),
+    );
+    assert_eq!(
+        sorted(archipelago.island_entity.values().copied().collect()),
+        sorted(vec![island_id_1, island_id_2]),
+    );
+    assert_eq!(archipelago.nav.islands.len(), 2);
+
+    let island_id_3 = app
+        .world_mut()
+        .spawn((Transform::default(), NavMeshHandle(nav_mesh.clone())))
+        .id();
+
+    app.update();
+
+    let mut archipelago = app
+        .world_mut()
+        .get_mut::<Archipelago3d>(archipelago_id)
+        .expect("archipelago exists");
+
+    assert_eq!(
+        sorted(archipelago.entity_island.keys().copied().collect()),
+        sorted(vec![island_id_1, island_id_2, island_id_3])
+    );
+    assert_eq!(
+        sorted(archipelago.island_entity.values().copied().collect()),
+        sorted(vec![island_id_1, island_id_2, island_id_3])
+    );
+    assert_eq!(archipelago.nav.islands.len(), 3);
+
+    app.world_mut().despawn(island_id_2);
+
+    app.update();
+
+    let mut archipelago = app
+        .world_mut()
+        .get_mut::<Archipelago3d>(archipelago_id)
+        .expect("archipelago exists");
+
+    assert_eq!(
+        sorted(archipelago.entity_island.keys().copied().collect()),
+        sorted(vec![island_id_1, island_id_3])
+    );
+    assert_eq!(
+        sorted(archipelago.island_entity.values().copied().collect()),
+        sorted(vec![island_id_1, island_id_3])
+    );
+    assert_eq!(archipelago.nav.islands.len(), 2);
+
+    app.world_mut().despawn(island_id_1);
+    app.world_mut().despawn(island_id_3);
+
+    app.update();
+
+    let mut archipelago = app
+        .world_mut()
+        .get_mut::<Archipelago3d>(archipelago_id)
+        .expect("archipelago exists");
+
+    assert_eq!(
+        archipelago
+            .entity_island
+            .keys()
+            .copied()
+            .collect::<Vec<_>>(),
+        []
+    );
+    assert_eq!(
+        archipelago
+            .island_entity
+            .values()
+            .copied()
+            .collect::<Vec<_>>(),
+        []
+    );
+    assert_eq!(archipelago.nav.islands.len(), 0);
+}
+
+#[test]
+fn changing_agent_fields_changes_landmass_agent() {
+    let mut app = App::new();
+
+    app.add_plugins((
+        bevy::app::TaskPoolPlugin::default(),
+        bevy::time::TimePlugin,
+        bevy::app::ScheduleRunnerPlugin::default(),
+    ))
+    .add_plugins(TransformPlugin)
+    .add_plugins(AssetPlugin::default())
+    .add_plugins(LandmassPlugin3d::default());
+
+    // Update early to allow the time to not be 0.0.
+    app.update();
+
+    app.world_mut().spawn((
+        Archipelago3d::new(),
+        AgentOptions::<ThreeD>::from_agent_radius(0.5),
+    ));
+
+    let agent = app
+        .world_mut()
+        .spawn((
+            Transform::from_translation(Vec3::new(1.0, 2.0, 3.0)),
+            Agent3d::new(Vec3::ZERO, 1.0, 1.0, 2.0)
+                .with_reached_condition(ReachedCondition::Distance(Some(1.0)))
+                .with_velocity(Vec3::new(4.0, 5.0, 6.0)),
+        ))
+        .id();
+
+    app.update();
+
+    let agent_ref: &crate::landmass::Agent<ThreeD> = app.world().get(agent).unwrap();
+    assert_eq!(agent_ref.position, Vec3::new(1.0, 2.0, 3.0));
+    assert_eq!(agent_ref.current_velocity, Vec3::new(4.0, 5.0, 6.0));
+    assert_eq!(agent_ref.radius, 1.0);
+    assert_eq!(agent_ref.desired_speed, 1.0);
+    assert_eq!(agent_ref.max_speed, 2.0);
+    assert_eq!(agent_ref.current_target, None);
+    let ReachedCondition::Distance(dist) = agent_ref.reached_condition else {
+        panic!("Expected distance reached condition");
+    };
+    assert_eq!(dist, Some(1.0));
+    #[cfg(feature = "debug-avoidance")]
+    assert!(!agent_ref.keep_avoidance_data);
+
+    app.world_mut().entity_mut(agent).insert((
+        Transform::from_translation(Vec3::new(7.0, 8.0, 9.0)),
+        Agent3d::new(Vec3::ZERO, 2.0, 1.5, 2.0)
+            .with_reached_condition(ReachedCondition::VisibleAtDistance(Some(2.0)))
+            .with_velocity(Vec3::new(10.0, 11.0, 12.0)),
+        AgentTarget3d::Point(Vec3::new(13.0, 14.0, 15.0)),
+        #[cfg(feature = "debug-avoidance")]
+        crate::agent::KeepAvoidanceData,
+    ));
+
+    app.update();
+
+    let agent_ref: &crate::landmass::Agent<ThreeD> = app.world().get(agent).unwrap();
+    assert_eq!(agent_ref.position, Vec3::new(7.0, 8.0, 9.0));
+    assert_eq!(agent_ref.current_velocity, Vec3::new(10.0, 11.0, 12.0));
+    assert_eq!(agent_ref.radius, 2.0);
+    assert_eq!(agent_ref.desired_speed, 1.5);
+    assert_eq!(agent_ref.max_speed, 2.0);
+    assert_eq!(agent_ref.current_target, Some(Vec3::new(13.0, 14.0, 15.0)));
+    let ReachedCondition::VisibleAtDistance(dist) = agent_ref.reached_condition else {
+        panic!("Expected distance reached condition");
+    };
+    assert_eq!(dist, Some(2.0));
+    #[cfg(feature = "debug-avoidance")]
+    assert!(agent_ref.keep_avoidance_data);
+}
+
+#[test]
+fn changing_character_fields_changes_landmass_character() {
+    let mut app = App::new();
+
+    app.add_plugins((
+        bevy::app::TaskPoolPlugin::default(),
+        bevy::time::TimePlugin,
+        bevy::app::ScheduleRunnerPlugin::default(),
+    ))
+    .add_plugins(TransformPlugin)
+    .add_plugins(AssetPlugin::default())
+    .add_plugins(LandmassPlugin3d::default());
+
+    // Update early to allow the time to not be 0.0.
+    app.update();
+
+    app.world_mut().spawn((
+        Archipelago3d::new(),
+        AgentOptions::<ThreeD>::from_agent_radius(0.5),
+    ));
+
+    let character = app
+        .world_mut()
+        .spawn((
+            Transform::from_translation(Vec3::new(1.0, 2.0, 3.0)),
+            Character3d::new(1.0).with_velocity(Vec3::new(4.0, 5.0, 6.0)),
+        ))
+        .id();
+
+    app.update();
+
+    let character_ref: &crate::landmass::Character<ThreeD> = app.world().get(character).unwrap();
+
+    assert_eq!(character_ref.position, Vec3::new(1.0, 2.0, 3.0));
+    assert_eq!(character_ref.velocity, Vec3::new(4.0, 5.0, 6.0));
+    assert_eq!(character_ref.radius, 1.0);
+
+    app.world_mut().entity_mut(character).insert((
+        Transform::from_translation(Vec3::new(7.0, 8.0, 9.0)),
+        Character3d::new(2.0).with_velocity(Vec3::new(10.0, 11.0, 12.0)),
+    ));
+
+    app.update();
+
+    let character_ref: &crate::landmass::Character<ThreeD> = app.world().get(character).unwrap();
+    assert_eq!(character_ref.position, Vec3::new(7.0, 8.0, 9.0));
+    assert_eq!(character_ref.velocity, Vec3::new(10.0, 11.0, 12.0));
+    assert_eq!(character_ref.radius, 2.0);
+}
+
+#[test]
+fn node_type_costs_are_used() {
+    let mut app = App::new();
+
+    app.add_plugins((
+        bevy::app::TaskPoolPlugin::default(),
+        bevy::time::TimePlugin,
+        bevy::app::ScheduleRunnerPlugin::default(),
+    ))
+    .add_plugins(TransformPlugin)
+    .add_plugins(AssetPlugin::default())
+    .add_plugins(LandmassPlugin2d::default());
+
+    // Update early to allow the time to not be 0.0.
+    app.update();
+
+    let options = AgentOptions::<TwoD>::from_agent_radius(0.5);
+    let mut archipelago = Archipelago2d::new();
+    let slow_node_type = archipelago.add_node_type(10.0).unwrap();
+
+    let archipelago_id = app.world_mut().spawn((archipelago, options)).id();
+
+    let nav_mesh = Arc::new(
+        NavigationMesh {
+            vertices: vec![
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1.0, 0.0),
+                Vec2::new(1.0, 1.0),
+                Vec2::new(0.0, 1.0),
+                //
+                Vec2::new(2.0, 0.0),
+                Vec2::new(2.0, 1.0),
+                //
+                Vec2::new(3.0, 0.0),
+                Vec2::new(3.0, 1.0),
+                //
+                Vec2::new(2.0, 11.0),
+                Vec2::new(3.0, 11.0),
+                //
+                Vec2::new(2.0, 12.0),
+                Vec2::new(3.0, 12.0),
+                //
+                Vec2::new(1.0, 12.0),
+                Vec2::new(1.0, 11.0),
+                //
+                Vec2::new(0.0, 12.0),
+                Vec2::new(0.0, 11.0),
+            ],
+            polygons: vec![
+                vec![0, 1, 2, 3],
+                vec![2, 1, 4, 5],
+                vec![5, 4, 6, 7],
+                //
+                vec![5, 7, 9, 8],
+                vec![8, 9, 11, 10],
+                //
+                vec![8, 10, 12, 13],
+                vec![13, 12, 14, 15],
+                //
+                vec![3, 2, 13, 15],
+            ],
+            polygon_type_indices: vec![0, 0, 0, 0, 0, 0, 0, 1],
+        }
+        .validate()
+        .expect("nav mesh is valid"),
+    );
+
+    let nav_mesh_handle = app
+        .world()
+        .resource::<Assets<NavMesh2d>>()
+        .get_handle_provider()
+        .reserve_handle()
+        .typed::<NavMesh2d>();
+
+    app.world_mut()
+        .spawn((Transform::default(), NavMeshHandle(nav_mesh_handle.clone())));
+
+    app.world_mut().resource_mut::<Assets<NavMesh2d>>().insert(
+        &nav_mesh_handle,
+        NavMesh2d {
+            nav_mesh,
+            type_index_to_node_type: HashMap::from([(1, slow_node_type)]),
+        },
+    );
+
+    let agent_id = app
+        .world_mut()
+        .spawn((
+            Transform::from_translation(Vec3::new(0.5, 0.5, 1.0)),
+            Agent2d::new(Vec2::ZERO, 0.5, 1.0, 2.0)
+                .with_reached_condition(ReachedCondition::Distance(None)),
+            AgentTarget2d::Point(Vec2::new(0.5, 11.5)),
+        ))
+        .id();
+
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .get::<Agent2d>(agent_id)
+            .expect("current state was added")
+            .state,
+        AgentState::Moving,
+    );
+    assert_eq!(
+        app.world()
+            .get::<Agent2d>(agent_id)
+            .expect("desired velocity was added")
+            .desired_velocity,
+        Vec2::new(1.5, 0.5).normalize(),
+    );
+}
+
+#[test]
+fn overridden_node_type_costs_are_used() {
+    let mut app = App::new();
+
+    app.add_plugins((
+        bevy::app::TaskPoolPlugin::default(),
+        bevy::time::TimePlugin,
+        bevy::app::ScheduleRunnerPlugin::default(),
+    ))
+    .add_plugins(TransformPlugin)
+    .add_plugins(AssetPlugin::default())
+    .add_plugins(LandmassPlugin2d::default());
+
+    // Update early to allow the time to not be 0.0.
+    app.update();
+
+    let options = AgentOptions::<TwoD>::from_agent_radius(0.5);
+    let mut archipelago = Archipelago2d::new();
+    let slow_node_type = archipelago.add_node_type(1.0).unwrap();
+
+    let archipelago_id = app.world_mut().spawn((archipelago, options)).id();
+
+    let nav_mesh = Arc::new(
+        NavigationMesh {
+            vertices: vec![
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1.0, 0.0),
+                Vec2::new(1.0, 1.0),
+                Vec2::new(0.0, 1.0),
+                //
+                Vec2::new(2.0, 0.0),
+                Vec2::new(2.0, 1.0),
+                //
+                Vec2::new(3.0, 0.0),
+                Vec2::new(3.0, 1.0),
+                //
+                Vec2::new(2.0, 11.0),
+                Vec2::new(3.0, 11.0),
+                //
+                Vec2::new(2.0, 12.0),
+                Vec2::new(3.0, 12.0),
+                //
+                Vec2::new(1.0, 12.0),
+                Vec2::new(1.0, 11.0),
+                //
+                Vec2::new(0.0, 12.0),
+                Vec2::new(0.0, 11.0),
+            ],
+            polygons: vec![
+                vec![0, 1, 2, 3],
+                vec![2, 1, 4, 5],
+                vec![5, 4, 6, 7],
+                //
+                vec![5, 7, 9, 8],
+                vec![8, 9, 11, 10],
+                //
+                vec![8, 10, 12, 13],
+                vec![13, 12, 14, 15],
+                //
+                vec![3, 2, 13, 15],
+            ],
+            polygon_type_indices: vec![0, 0, 0, 0, 0, 0, 0, 1],
+        }
+        .validate()
+        .expect("nav mesh is valid"),
+    );
+
+    let nav_mesh_handle = app
+        .world()
+        .resource::<Assets<NavMesh2d>>()
+        .get_handle_provider()
+        .reserve_handle()
+        .typed::<NavMesh2d>();
+
+    app.world_mut()
+        .spawn((Transform::default(), NavMeshHandle(nav_mesh_handle.clone())));
+
+    app.world_mut().resource_mut::<Assets<NavMesh2d>>().insert(
+        &nav_mesh_handle,
+        NavMesh2d {
+            nav_mesh,
+            type_index_to_node_type: HashMap::from([(1, slow_node_type)]),
+        },
+    );
+
+    let agent_id = app
+        .world_mut()
+        .spawn((
+            Transform::from_translation(Vec3::new(0.5, 0.5, 1.0)),
+            Agent2d::new(Vec2::ZERO, 0.5, 1.0, 2.0),
+            AgentTarget2d::Point(Vec2::new(0.5, 11.5)),
+            {
+                let mut overrides = AgentNodeTypeCostOverrides::default();
+                overrides.set_node_type_cost(slow_node_type, 10.0);
+                overrides
+            },
+        ))
+        .id();
+
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .get::<Agent2d>(agent_id)
+            .expect("current state was added")
+            .state,
+        AgentState::Moving,
+    );
+    assert_eq!(
+        app.world()
+            .get::<Agent2d>(agent_id)
+            .expect("desired velocity was added")
+            .desired_velocity,
+        Vec2::new(1.5, 0.5).normalize(),
+    );
+}
+
+#[test]
+fn sample_point_error_on_out_of_range() {
+    let mut app = App::new();
+
+    app.add_plugins((
+        bevy::app::TaskPoolPlugin::default(),
+        bevy::time::TimePlugin,
+        bevy::app::ScheduleRunnerPlugin::default(),
+    ))
+    .add_plugins(TransformPlugin)
+    .add_plugins(AssetPlugin::default())
+    .add_plugins(LandmassPlugin2d::default());
+
+    // Update early to allow the time to not be 0.0.
+    app.update();
+
+    let archipelago_entity = app
+        .world_mut()
+        .spawn((
+            Archipelago2d::new(),
+            AgentOptions::<TwoD>::from_agent_radius(0.5),
+        ))
+        .id();
+
+    let nav_mesh = Arc::new(
+        NavigationMesh {
+            vertices: vec![
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1.0, 0.0),
+                Vec2::new(1.0, 1.0),
+                Vec2::new(0.0, 1.0),
+            ],
+            polygons: vec![vec![0, 1, 2, 3]],
+            polygon_type_indices: vec![0],
+        }
+        .validate()
+        .expect("nav mesh is valid"),
+    );
+    let nav_mesh_handle = app
+        .world_mut()
+        .resource_mut::<Assets<NavMesh2d>>()
+        .add(NavMesh2d {
+            nav_mesh,
+            type_index_to_node_type: HashMap::new(),
+        });
+
+    app.world_mut()
+        .spawn((Transform::default(), NavMeshHandle(nav_mesh_handle)));
+
+    app.update();
+
+    let mut archipelago = app
+        .world_mut()
+        .get_mut::<Archipelago2d>(archipelago_entity)
+        .unwrap();
+
+    assert_eq!(
+        archipelago
+            .sample_point(Vec2::new(-0.5, 0.5), 0.1)
+            .map(|p| p.point()),
+        Err(SamplePointError::OutOfRange)
+    );
+}
+
+#[test]
+fn samples_point_on_nav_mesh_or_near_nav_mesh() {
+    let mut app = App::new();
+
+    app.add_plugins((
+        bevy::app::TaskPoolPlugin::default(),
+        bevy::time::TimePlugin,
+        bevy::app::ScheduleRunnerPlugin::default(),
+    ))
+    .add_plugins(TransformPlugin)
+    .add_plugins(AssetPlugin::default())
+    .add_plugins(LandmassPlugin2d::default());
+
+    // Update early to allow the time to not be 0.0.
+    app.update();
+
+    let archipelago_entity = app
+        .world_mut()
+        .spawn((
+            Archipelago2d::new(),
+            AgentOptions::<TwoD>::from_agent_radius(0.5),
+        ))
+        .id();
+
+    let nav_mesh = Arc::new(
+        NavigationMesh {
+            vertices: vec![
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1.0, 0.0),
+                Vec2::new(1.0, 1.0),
+                Vec2::new(0.0, 1.0),
+            ],
+            polygons: vec![vec![0, 1, 2, 3]],
+            polygon_type_indices: vec![0],
+        }
+        .validate()
+        .expect("nav mesh is valid"),
+    );
+    let nav_mesh_handle = app
+        .world_mut()
+        .resource_mut::<Assets<NavMesh2d>>()
+        .add(NavMesh2d {
+            nav_mesh,
+            type_index_to_node_type: HashMap::new(),
+        });
+
+    let offset = Vec2::new(10.0, 10.0);
+    let island_id = app
+        .world_mut()
+        .spawn((
+            Transform::from_translation(offset.extend(0.0)),
+            NavMeshHandle(nav_mesh_handle),
+        ))
+        .id();
+
+    app.update();
+
+    let mut archipelago = app
+        .world_mut()
+        .get_mut::<Archipelago2d>(archipelago_entity)
+        .unwrap();
+
+    assert_eq!(
+        archipelago
+            .sample_point(offset + Vec2::new(-0.5, 0.5), 0.6)
+            .map(|p| (p.island(), p.point())),
+        Ok((island_id, offset + Vec2::new(0.0, 0.5)))
+    );
+    assert_eq!(
+        archipelago
+            .sample_point(offset + Vec2::new(0.5, 0.5), 0.6)
+            .map(|p| (p.island(), p.point())),
+        Ok((island_id, offset + Vec2::new(0.5, 0.5)))
+    );
+    assert_eq!(
+        archipelago
+            .sample_point(offset + Vec2::new(1.2, 1.2), 0.6)
+            .map(|p| (p.island(), p.point())),
+        Ok((island_id, offset + Vec2::new(1.0, 1.0)))
+    );
+}
+
+#[test]
+fn samples_node_types() {
+    let mut app = App::new();
+
+    app.add_plugins((
+        bevy::app::TaskPoolPlugin::default(),
+        bevy::time::TimePlugin,
+        bevy::app::ScheduleRunnerPlugin::default(),
+    ))
+    .add_plugins(TransformPlugin)
+    .add_plugins(AssetPlugin::default())
+    .add_plugins(LandmassPlugin2d::default());
+
+    // Update early to allow the time to not be 0.0.
+    app.update();
+
+    let options = AgentOptions::<TwoD>::from_agent_radius(0.5);
+    let mut archipelago = Archipelago2d::new();
+    let node_type = archipelago.add_node_type(2.0).unwrap();
+    let archipelago_entity = app.world_mut().spawn((archipelago, options)).id();
+
+    let nav_mesh = Arc::new(
+        NavigationMesh {
+            vertices: vec![
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1.0, 0.0),
+                Vec2::new(1.0, 1.0),
+                Vec2::new(0.0, 1.0),
+                Vec2::new(2.0, 0.0),
+                Vec2::new(2.0, 1.0),
+            ],
+            polygons: vec![vec![0, 1, 2, 3], vec![2, 1, 4, 5]],
+            polygon_type_indices: vec![0, 1],
+        }
+        .validate()
+        .expect("nav mesh is valid"),
+    );
+    let nav_mesh_handle = app
+        .world_mut()
+        .resource_mut::<Assets<NavMesh2d>>()
+        .add(NavMesh2d {
+            nav_mesh,
+            type_index_to_node_type: HashMap::from([(1, node_type)]),
+        });
+
+    let offset = Vec2::new(10.0, 10.0);
+    app.world_mut().spawn((
+        Transform::from_translation(offset.extend(0.0)),
+        NavMeshHandle(nav_mesh_handle),
+    ));
+
+    app.update();
+
+    let mut archipelago = app
+        .world_mut()
+        .get_mut::<Archipelago2d>(archipelago_entity)
+        .unwrap();
+
+    assert_eq!(
+        archipelago
+            .sample_point(offset + Vec2::new(0.5, 0.5), 0.1)
+            .map(|p| p.node_type()),
+        Ok(None)
+    );
+    assert_eq!(
+        archipelago
+            .sample_point(offset + Vec2::new(1.5, 0.5), 0.1)
+            .map(|p| p.node_type()),
+        Ok(Some(node_type))
+    );
+}
+
+#[test]
+fn finds_path() {
+    let mut app = App::new();
+
+    app.add_plugins((
+        bevy::app::TaskPoolPlugin::default(),
+        bevy::time::TimePlugin,
+        bevy::app::ScheduleRunnerPlugin::default(),
+    ))
+    .add_plugins(TransformPlugin)
+    .add_plugins(AssetPlugin::default())
+    .add_plugins(LandmassPlugin2d::default());
+
+    // Update early to allow the time to not be 0.0.
+    app.update();
+
+    let archipelago_entity = app
+        .world_mut()
+        .spawn((
+            Archipelago2d::new(),
+            AgentOptions::<TwoD>::from_agent_radius(0.5),
+        ))
+        .id();
+
+    let nav_mesh = Arc::new(
+        NavigationMesh {
+            vertices: vec![
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1.0, 0.0),
+                Vec2::new(1.0, 1.0),
+                Vec2::new(0.0, 1.0),
+            ],
+            polygons: vec![vec![0, 1, 2, 3]],
+            polygon_type_indices: vec![0],
+        }
+        .validate()
+        .expect("nav mesh is valid"),
+    );
+
+    let nav_mesh = app
+        .world_mut()
+        .resource_mut::<Assets<NavMesh2d>>()
+        .add(NavMesh2d {
+            nav_mesh,
+            type_index_to_node_type: HashMap::new(),
+        });
+
+    app.world_mut()
+        .spawn((Transform::default(), NavMeshHandle(nav_mesh.clone())));
+
+    app.world_mut().spawn((
+        Transform::from_translation(Vec3::new(1.0, 0.0, 0.0)),
+        NavMeshHandle(nav_mesh.clone()),
+    ));
+
+    app.world_mut().spawn((
+        Transform::from_translation(Vec3::new(2.0, 0.5, 0.0)),
+        NavMeshHandle(nav_mesh.clone()),
+    ));
+
+    app.update();
+
+    let mut archipelago = app
+        .world_mut()
+        .get_mut::<Archipelago2d>(archipelago_entity)
+        .unwrap();
+    let start_point = archipelago
+        .sample_point(Vec2::new(0.5, 0.5), 1e-5)
+        .expect("point is on nav mesh.");
+    let end_point = archipelago
+        .sample_point(Vec2::new(2.5, 1.25), 1e-5)
+        .unwrap();
+    assert_eq!(
+        archipelago.find_path(&start_point, &end_point, &HashMap::new()),
+        Ok(vec![
+            Vec2::new(0.5, 0.5),
+            Vec2::new(2.0, 1.0),
+            Vec2::new(2.5, 1.25)
+        ])
+    );
+}
+
+#[test]
+fn island_matches_rotation_3d() {
+    let mut app = App::new();
+
+    app.add_plugins((
+        bevy::app::TaskPoolPlugin::default(),
+        bevy::time::TimePlugin,
+        bevy::app::ScheduleRunnerPlugin::default(),
+    ))
+    .add_plugins(TransformPlugin)
+    .add_plugins(AssetPlugin::default())
+    .add_plugins(LandmassPlugin3d::default());
+
+    // Update early to allow the time to not be 0.0.
+    app.update();
+
+    let archipelago_entity = app
+        .world_mut()
+        .spawn((
+            Archipelago3d::new(),
+            AgentOptions::<ThreeD>::from_agent_radius(0.5),
+        ))
+        .id();
+
+    let nav_mesh = Arc::new(
+        NavigationMesh {
+            vertices: vec![
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(1.0, 0.0, 0.0),
+                Vec3::new(1.0, 0.0, -1.0),
+                Vec3::new(0.0, 0.0, -1.0),
+            ],
+            polygons: vec![vec![0, 1, 2, 3]],
+            polygon_type_indices: vec![0],
+        }
+        .validate()
+        .expect("nav mesh is valid"),
+    );
+
+    let nav_mesh = app
+        .world_mut()
+        .resource_mut::<Assets<NavMesh3d>>()
+        .add(NavMesh3d {
+            nav_mesh,
+            type_index_to_node_type: HashMap::new(),
+        });
+
+    let island = app
+        .world_mut()
+        .spawn((
+            Transform::from_rotation(Quat::from_rotation_y(2.0)),
+            NavMeshHandle(nav_mesh.clone()),
+        ))
+        .id();
+
+    app.update();
+
+    let rotation = app
+        .world()
+        .get::<Archipelago3d>(archipelago_entity)
+        .unwrap()
+        .island(island)
+        .expect("The island is present.")
+        .transform()
+        .rotation;
+    assert!((rotation - 2.0).abs() < 1e-6, "left={rotation} right=2.0");
+}
+
+#[test]
+fn island_matches_rotation_2d() {
+    let mut app = App::new();
+
+    app.add_plugins((
+        bevy::app::TaskPoolPlugin::default(),
+        bevy::time::TimePlugin,
+        bevy::app::ScheduleRunnerPlugin::default(),
+    ))
+    .add_plugins(TransformPlugin)
+    .add_plugins(AssetPlugin::default())
+    .add_plugins(LandmassPlugin2d::default());
+
+    // Update early to allow the time to not be 0.0.
+    app.update();
+
+    let archipelago_entity = app
+        .world_mut()
+        .spawn((
+            Archipelago2d::new(),
+            AgentOptions::<TwoD>::from_agent_radius(0.5),
+        ))
+        .id();
+
+    let nav_mesh = Arc::new(
+        NavigationMesh {
+            vertices: vec![
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1.0, 0.0),
+                Vec2::new(1.0, 1.0),
+                Vec2::new(0.0, 1.0),
+            ],
+            polygons: vec![vec![0, 1, 2, 3]],
+            polygon_type_indices: vec![0],
+        }
+        .validate()
+        .expect("nav mesh is valid"),
+    );
+
+    let nav_mesh = app
+        .world_mut()
+        .resource_mut::<Assets<NavMesh2d>>()
+        .add(NavMesh2d {
+            nav_mesh,
+            type_index_to_node_type: HashMap::new(),
+        });
+
+    let island = app
+        .world_mut()
+        .spawn((
+            Transform::from_rotation(Quat::from_rotation_z(2.0)),
+            Island2d::new(archipelago_entity),
+            NavMeshHandle(nav_mesh.clone()),
+        ))
+        .id();
+
+    app.update();
+
+    let rotation = app
+        .world()
+        .get::<Archipelago2d>(archipelago_entity)
+        .unwrap()
+        .island(island)
+        .expect("The island is present.")
+        .transform()
+        .rotation;
+    assert!((rotation - 2.0).abs() < 1e-6, "left={rotation} right=2.0");
+}

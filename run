@@ -1,0 +1,11 @@
+export CARGO_MANIFEST_DIR=`pwd`
+#echo $CARGO_MANIFEST_DIR
+export RUST_LOG=main=debug,shaderlab=debug,bevy=debug
+export RUST_BACKTRACE=full
+
+#cargo run --package=upd --release
+
+#cargo run --package=game --features=dev_mode
+#cargo run --package=builder
+
+cargo run --package=terrain

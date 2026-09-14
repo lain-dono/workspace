@@ -1,0 +1,3 @@
+fn foo(msg: u32) {
+	msg.foo();
+}

@@ -7,18 +7,22 @@ edition = "2024"
 dev_mode = ["bevy/bevy_dev_tools"]
 
 [dependencies]
-bevy = { version = "0.17.1", features = ["serialize", "wayland"] }
+bevy = { version = "0.18.1", features = ["serialize", "wayland"] }
 
-bevy_egui = "0.38.0"
-bevy_skein = "0.3.0"
+bevy_egui = "0.39.1"
+bevy_skein = "0.5.0"
 #bevy_asset_loader = { version = "0.23.0", features = ["progress_tracking"] }
 
-#iyes_progress = "0.14.0"
-iyes_progress = { path = "../crates/iyes_progress" }
-bevy_asset_loader = { path = "../crates/bevy_asset_loader/bevy_asset_loader", features = [
+iyes_progress = "0.16.0"
+#iyes_progress = { path = "../crates/iyes_progress" }
+# bevy_asset_loader = { path = "../crates/bevy_asset_loader/bevy_asset_loader", features = [
+#     #"progress_tracking",
+# ] }
+
+bevy_asset_loader = { version = "0.26", features = [
     #"progress_tracking",
 ] }
 
 serde = { version = "1", features = ["derive"] }
-toml = "0.9.5"
+toml = "1.1.2+spec-1.1.0"
 directories = "6"

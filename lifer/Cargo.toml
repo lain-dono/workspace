@@ -1,0 +1,53 @@
+[package]
+name = "lifer"
+version = "0.1.0"
+edition = "2021"
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+codegen-units = 1
+
+# The profile that 'cargo dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
+[features]
+default = []
+
+#[target.'cfg(not(target_env = "msvc"))'.dependencies]
+#jemallocator = "0.5.4"
+
+[dependencies]
+bevy = { version = "0.17", features = ["serialize", "wayland"] }
+bevy_egui = "0.36.0"
+# bevy_egui = { path = 'vendor/bevy_egui' }
+big-brain = { git = "https://github.com/PlagueAutomata/big-brain", rev = "df0eb35" }
+
+serde = { version = "1", features = ["derive"] }
+ron = "0.10"
+bevy_asset_loader = { version = "0.23.0", features = ["progress_tracking"] }
+# bevy_asset_loader = { git = 'https://github.com/NiklasEi/bevy_asset_loader', branch = 'bevy_main' }
+# bevy_asset_loader = { path = 'vendor/bevy_asset_loader/bevy_asset_loader' }
+# iyes_progress = { version = "0.11" }
+#iyes_progress = { git = 'https://github.com/NiklasEi/iyes_progress', branch = 'bevy_main' }
+iyes_progress = "0.14.0"
+
+rand = { version = "0.9", features = ["small_rng"] }
+directories = "6"
+toml = "0.9"
+
+delaunator = "1.0.2"
+noise = "0.9"
+fast_poisson = "1"
+thiserror = "2"
+
+[patch.crates-io]
+# bevy_asset_loader = { version = "0.20", git = 'https://github.com/NiklasEi/bevy_asset_loader', branch = 'bevy_main' }
+# iyes_progress = { git = 'https://github.com/NiklasEi/iyes_progress', branch = 'bevy_main' }
+# bevy_egui = { git = 'https://github.com/eerii/bevy_egui', branch = 'main' }
